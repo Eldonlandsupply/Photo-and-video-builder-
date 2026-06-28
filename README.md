@@ -21,6 +21,16 @@ git clone https://github.com/artokun/ComfyUI-Photoreal-Prompt-Builder.git comfyu
 
 Restart ComfyUI. No pip dependencies required.
 
+### Download Bundle
+
+Create a portable ZIP that can be copied into another ComfyUI install:
+
+```bash
+python3 scripts/create_download_bundle.py
+```
+
+The archive is written to `dist/comfyui-photoreal-prompt-builder-download.zip` and includes the core node files, examples, config, README, license, and submodule metadata. It does not include model weights, generated media, or optional submodule contents. To enable the optional adult-content nodes after extracting a git install, run `git submodule update --init --recursive`, set `config.json` to `{ "nsfw": true }`, and restart ComfyUI.
+
 ### ComfyUI Manager
 
 Search for **"Photoreal Prompt Builder"** in the ComfyUI Manager install menu.
