@@ -28,7 +28,7 @@ jobs:
           sudo apt-get install -y espeak-ng ffmpeg
           python -m pip install --upgrade pip
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
-          python -m pip install 'kokoro==0.9.4' 'transformers<5' soundfile numpy
+          python -m pip install 'kokoro==0.9.4' 'transformers<5' 'click>=8.1,<9' soundfile numpy
 
       - name: Generate natural narration alternatives
         env:
