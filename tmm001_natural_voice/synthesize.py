@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse, hashlib, json, re, shutil, subprocess
+import argparse, hashlib, json, re, subprocess
 from pathlib import Path
 
 import numpy as np
@@ -56,6 +56,33 @@ def synthesize(pipeline, text: str, voice: str, speed: float) -> np.ndarray:
     return np.concatenate(chunks)
 
 
+def synthesize_to_window(pipeline, seg: dict, voice: str, base_speed: float, raw: Path):
+    target = float(seg['duration'])
+    speed = base_speed
+    attempts = []
+    for attempt in range(1, 4):
+        audio = synthesize(pipeline, seg['tts_text'], voice, speed)
+        sf.write(raw, audio, SR, subtype='PCM_24')
+        raw_dur = duration(raw)
+        ratio = raw_dur / target
+        attempts.append({
+            'attempt': attempt,
+            'generation_speed': speed,
+            'raw_duration': raw_dur,
+            'raw_to_window_ratio': ratio,
+        })
+        if 0.90 <= ratio <= 1.10:
+            break
+        desired_ratio = 1.025 if ratio > 1.10 else 0.965
+        speed = max(0.82, min(1.42, speed * ratio / desired_ratio))
+    return {
+        'generation_speed': speed,
+        'attempts': attempts,
+        'raw_duration': duration(raw),
+        'raw_to_window_ratio': duration(raw) / target,
+    }
+
+
 def atempo_chain(rate: float) -> str:
     factors = []
     while rate > 2.0:
@@ -71,11 +98,13 @@ def atempo_chain(rate: float) -> str:
 def fit_clip(raw: Path, target: float, out: Path):
     raw_dur = duration(raw)
     tempo = raw_dur / target
-    # Preserve natural rhythm. Use silence for modest underruns and reject only extreme compression.
-    if tempo < 0.95:
-        tempo = 0.95
-    if tempo > 1.28:
-        raise RuntimeError(f'Clip {raw.name} needs excessive speed-up ({tempo:.3f}x).')
+    # Only mild post-render time correction is permitted. Larger changes are re-spoken above.
+    if tempo < 0.94:
+        tempo = 0.94
+    if tempo > 1.16:
+        raise RuntimeError(
+            f'Clip {raw.name} still needs excessive post-render speed-up ({tempo:.3f}x).'
+        )
     fade_out = max(0.0, target - 0.08)
     filt = (
         f'{atempo_chain(tempo)},'
@@ -86,7 +115,11 @@ def fit_clip(raw: Path, target: float, out: Path):
         'ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-i', str(raw),
         '-af', filt, '-ar', str(SR), '-ac', '1', '-c:a', 'pcm_s24le', str(out)
     ])
-    return {'raw_duration': raw_dur, 'tempo': tempo, 'target': target}
+    return {
+        'raw_duration': raw_dur,
+        'post_render_tempo': tempo,
+        'target': target,
+    }
 
 
 def concat_wavs(wavs: list[Path], out: Path):
@@ -149,11 +182,15 @@ def build_voice(pipeline, voice: str, label: str, data: dict, outdir: Path):
     for seg in data['segments']:
         raw = work / f'{seg["id"]}_raw.wav'
         fit = work / f'{seg["id"]}_fit.wav'
-        audio = synthesize(pipeline, seg['tts_text'], voice, base_speed)
-        sf.write(raw, audio, SR, subtype='PCM_24')
-        stats = fit_clip(raw, float(seg['duration']), fit)
-        stats.update({'id': seg['id'], 'text': seg['text']})
-        segment_report.append(stats)
+        generation = synthesize_to_window(pipeline, seg, voice, base_speed, raw)
+        fitting = fit_clip(raw, float(seg['duration']), fit)
+        segment_report.append({
+            'id': seg['id'],
+            'text': seg['text'],
+            'window_seconds': seg['duration'],
+            **generation,
+            **fitting,
+        })
         fitted.append(fit)
     combined = work / 'combined_24bit.wav'
     narration = outdir / f'TMM001_Did_Jesus_Exist_{label}_Narration_48k.flac'
@@ -173,7 +210,7 @@ def build_voice(pipeline, voice: str, label: str, data: dict, outdir: Path):
         'normalization_filter': norm_filter,
         'probe': ffprobe(narration),
         'loudness': loudness(narration),
-        'sha256': sha256(narration)
+        'sha256': sha256(narration),
     }
 
 
@@ -195,7 +232,7 @@ def main():
         'runtime': data['runtime'],
         'editorial_lock': 'unchanged',
         'selected_narration': 'TMM001_Did_Jesus_Exist_Natural_Warm_Narration_48k.flac',
-        'builds': builds
+        'builds': builds,
     }
     (args.output / 'TMM001_Natural_Voice_Technical_Report.json').write_text(
         json.dumps(report, indent=2), encoding='utf-8'
