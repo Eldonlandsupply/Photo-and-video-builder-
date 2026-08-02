@@ -1,0 +1,43 @@
+name: Temporary Weekend at Mitch Scene Download
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'temporary/weekend-mitch-scenes.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  download-scenes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download photorealistic scene assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:b7cea959-48a2-45b4-ac3e-5645d1b7a5ee' -o output/01_stage_medium.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:58f38d99-e84f-4ffe-8e14-5f013bb02c44' -o output/02_stage_tight.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:4cf1abbf-63fa-47f5-84cc-3771acc8106e' -o output/03_stage_extreme.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:4c1e09c3-f891-4060-bef9-ed1c5a08aae3' -o output/04_backstage_full.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:fd3387f6-42f0-4c93-9180-287029f96e5a' -o output/05_backstage_left.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:47b50d3a-79e1-4246-802c-547e74b9b901' -o output/06_backstage_right.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:c1bdecca-ac3e-4a68-90b7-a930d4ecb49c' -o output/07_audience_full.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:f15d4841-609f-473f-b160-05db80bcb419' -o output/08_audience_cry.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:afdfaaaa-f6d6-4376-9d12-66ce59427ce4' -o output/09_audience_stand.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:1992460e-08ec-40e2-8301-c6277dd96c64' -o output/10_cast_full.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:2f8e3a06-bf6f-41af-aef2-d557df972cd4' -o output/11_cast_member.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:a22be4ec-e7b5-4117-a804-4094097a2300' -o output/12_cast_producer.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:43f26a6f-7221-46fd-84ab-ff869918e548' -o output/13_confetti_stage.png
+          file output/*
+          test "$(find output -type f | wc -l)" -eq 13
+      - name: Upload scene bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekend-mitch-realistic-scenes
+          path: output/*.png
+          if-no-files-found: error
+          retention-days: 1
