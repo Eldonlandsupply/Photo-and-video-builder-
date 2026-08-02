@@ -1,0 +1,33 @@
+name: Temporary Weekend at Mitch Episode 3 Scenes
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'temporary/weekend-mitch-ep3-scenes.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  download-scenes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download scenes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:7e06dff3-d4f4-4ef4-9890-d0d0bcba49a7' -o output/01_stage.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:5ff32752-5fe6-4a8b-a7c0-3b936d4aa967' -o output/02_players.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:8d831c04-de7a-40ac-b005-bb79a4ede481' -o output/03_commentators.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:a042af68-6d85-4e94-8af3-5162aeaa9c9d' -o output/04_reveal.png
+          test "$(find output -type f | wc -l)" -eq 4
+      - name: Upload scenes
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekend-mitch-ep3-scenes
+          path: output/*.png
+          if-no-files-found: error
+          retention-days: 1
