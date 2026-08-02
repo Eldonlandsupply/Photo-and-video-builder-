@@ -1,0 +1,66 @@
+name: Build TMM001 Natural Voice
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tmm001_natural_voice/**'
+      - '.github/workflows/tmm001-natural-voice.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-natural-voice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install speech and media dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y espeak-ng ffmpeg
+          python -m pip install --upgrade pip
+          python -m pip install 'kokoro>=0.9.4' soundfile numpy
+
+      - name: Download locked Episode 1 master and captions
+        env:
+          MASTER_URL: 'https://eldonlandsupply-my.sharepoint.com/:v:/p/tynski/IQCUGA-LoeJ1Tbt3QmNTFAWQAVAigqMFwQERReCVg2gsQP4'
+          CAPTIONS_URL: 'https://eldonlandsupply-my.sharepoint.com/:u:/p/tynski/IQDtMBZCzVfoQYrHwuhFsx-OAd3P6qMrhvcQdwSqyiTG594'
+        run: |
+          set -euxo pipefail
+          curl -L --fail --retry 3 "$MASTER_URL?download=1" -o source.mp4
+          curl -L --fail --retry 3 "$CAPTIONS_URL?download=1" -o captions.srt
+          ffprobe -v error -show_entries format=duration -show_entries stream=codec_type,width,height -of json source.mp4
+          grep -q '00:05:05,000' captions.srt
+
+      - name: Generate natural narration and upload-ready masters
+        run: |
+          python tmm001_natural_voice/synthesize.py \
+            --source source.mp4 \
+            --segments tmm001_natural_voice/segments.json \
+            --captions captions.srt \
+            --output dist
+
+      - name: Verify outputs
+        run: |
+          set -euxo pipefail
+          test -f dist/TMM001_Did_Jesus_Exist_Natural_Warm_YouTube_Master_1080p.mp4
+          test -f dist/TMM001_Did_Jesus_Exist_Natural_Male_YouTube_Master_1080p.mp4
+          ffprobe -v error -show_entries format=duration -show_entries stream=codec_type,codec_name,width,height,sample_rate -of json dist/TMM001_Did_Jesus_Exist_Natural_Warm_YouTube_Master_1080p.mp4
+          find dist -type d -name 'work_*' -prune -exec rm -rf {} +
+          sha256sum dist/* > dist/SHA256SUMS.txt
+
+      - name: Upload natural-voice masters
+        uses: actions/upload-artifact@v4
+        with:
+          name: TMM001-natural-voice-masters
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 6
