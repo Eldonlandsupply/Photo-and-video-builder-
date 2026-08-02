@@ -20,26 +20,31 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
       - name: Install speech and media dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y espeak-ng ffmpeg
           python -m pip install --upgrade pip
-          python -m pip install 'kokoro>=0.9.4' soundfile numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install 'kokoro==0.9.4' soundfile numpy
 
       - name: Download locked Episode 1 master and captions
         env:
-          MASTER_URL: 'https://eldonlandsupply-my.sharepoint.com/:v:/p/tynski/IQCUGA-LoeJ1Tbt3QmNTFAWQAVAigqMFwQERReCVg2gsQP4'
-          CAPTIONS_URL: 'https://eldonlandsupply-my.sharepoint.com/:u:/p/tynski/IQDtMBZCzVfoQYrHwuhFsx-OAd3P6qMrhvcQdwSqyiTG594'
+          MASTER_URL: 'https://api.onedrive.com/v1.0/shares/u!aHR0cHM6Ly9lbGRvbmxhbmRzdXBwbHktbXkuc2hhcmVwb2ludC5jb20vOnY6L3AvdHluc2tpL0lRQ1VHQS1Mb2VKMVRidDNRbU5URkFXUUFWQWlncU1Gd1FFUlJlQ1ZnMmdzUVA0/root/content'
+          CAPTIONS_URL: 'https://api.onedrive.com/v1.0/shares/u!aHR0cHM6Ly9lbGRvbmxhbmRzdXBwbHktbXkuc2hhcmVwb2ludC5jb20vOnU6L3AvdHluc2tpL0lRRHRNQlpDelZmb1FZckh3dWhGc3gtT0FkM1A2cU1yaHZjUWR3U3F5aVRHNTk0/root/content'
         run: |
           set -euxo pipefail
-          curl -L --fail --retry 3 "$MASTER_URL?download=1" -o source.mp4
-          curl -L --fail --retry 3 "$CAPTIONS_URL?download=1" -o captions.srt
+          curl -L --fail --retry 3 --retry-all-errors "$MASTER_URL" -o source.mp4
+          curl -L --fail --retry 3 --retry-all-errors "$CAPTIONS_URL" -o captions.srt
+          test "$(stat -c%s source.mp4)" -gt 10000000
           ffprobe -v error -show_entries format=duration -show_entries stream=codec_type,width,height -of json source.mp4
           grep -q '00:05:05,000' captions.srt
 
       - name: Generate natural narration and upload-ready masters
+        env:
+          HF_HUB_DISABLE_XET: '1'
         run: |
           python tmm001_natural_voice/synthesize.py \
             --source source.mp4 \
