@@ -1,0 +1,41 @@
+name: Temporary Weekend at Mitch Episode 3 Voices
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'temporary/weekend-mitch-ep3-tts.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  generate-voices:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install natural TTS
+        run: python -m pip install --disable-pip-version-check edge-tts
+      - name: Generate fictional voices
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          edge-tts --voice en-US-GuyNeural --rate=+24% --pitch=-1Hz --text "Final hand. Mitch hasn't looked at his cards." --write-media output/01_announcer.mp3
+          edge-tts --voice en-US-RogerNeural --rate=+22% --text "He's been standing for eleven minutes." --write-media output/02_commentator_standing.mp3
+          edge-tts --voice en-US-AndrewNeural --rate=+22% --text "That's not standing. That's pressure." --write-media output/03_commentator_pressure.mp3
+          edge-tts --voice en-US-BrianNeural --rate=+25% --text "I'm out." --write-media output/04_player_fold.mp3
+          edge-tts --voice en-US-RogerNeural --rate=+24% --text "He folded aces." --write-media output/05_commentator_aces.mp3
+          edge-tts --voice en-US-JennyNeural --rate=+22% --text "Seven deuce." --write-media output/06_dealer_reveal.mp3
+          edge-tts --voice en-US-AndrewNeural --rate=+20% --text "He played the man, not the hand." --write-media output/07_commentator_punchline.mp3
+          edge-tts --voice en-US-GuyNeural --rate=+24% --pitch=-1Hz --text "Final hand." --write-media output/08_loop.mp3
+      - name: Upload voice bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekend-mitch-ep3-tts
+          path: output/*.mp3
+          if-no-files-found: error
+          retention-days: 1
