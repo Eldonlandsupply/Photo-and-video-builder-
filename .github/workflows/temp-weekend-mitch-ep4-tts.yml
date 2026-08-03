@@ -1,0 +1,40 @@
+name: Temporary Weekend at Mitch Episode 4 Voices
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'temporary/weekend-mitch-ep4-tts.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  generate-voices:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install natural TTS
+        run: python -m pip install --disable-pip-version-check edge-tts
+      - name: Generate fictional non-imitative voices
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          edge-tts --voice en-US-JennyNeural --rate=+14% --text "We're receiving something." --write-media output/01_mission_control.mp3
+          edge-tts --voice en-US-AndrewNeural --rate=-5% --pitch=-10Hz --text "He understands." --write-media output/02_alien.mp3
+          edge-tts --voice en-US-AvaNeural --rate=+12% --text "Did he say anything?" --write-media output/03_scientist.mp3
+          edge-tts --voice en-US-RogerNeural --rate=+30% --text "Exactly." --write-media output/04_translator_exactly.mp3
+          edge-tts --voice en-US-RogerNeural --rate=+16% --text "They've never met someone who listens this hard." --write-media output/05_translator_listens.mp3
+          edge-tts --voice en-US-GuyNeural --rate=+18% --pitch=-2Hz --text "First contact successful." --write-media output/06_announcer_success.mp3
+          edge-tts --voice en-US-JennyNeural --rate=+14% --text "We're receiving..." --write-media output/07_loop.mp3
+      - name: Upload voice bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekend-mitch-ep4-tts
+          path: output/*.mp3
+          if-no-files-found: error
+          retention-days: 1
