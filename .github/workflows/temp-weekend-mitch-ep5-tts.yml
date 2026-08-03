@@ -24,14 +24,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p output
-          edge-tts --voice en-US-JennyNeural --rate=+18% --text "Sir, the exit is that way." --write-media output/01_employee.mp3
-          edge-tts --voice en-US-AndrewNeural --rate=+30% --pitch=-6Hz --text "Nope." --write-media output/02_vampire.mp3
-          edge-tts --voice en-US-RogerNeural --rate=+20% --text "I don't like this." --write-media output/03_ghoul.mp3
-          edge-tts --voice en-US-AvaNeural --rate=+18% --text "He's been standing there for eleven minutes." --write-media output/04_security.mp3
-          edge-tts --voice en-GB-RyanNeural --rate=+20% --text "Is he scared?" --write-media output/05_manager.mp3
-          edge-tts --voice en-US-GuyNeural --rate=+35% --text "We are." --write-media output/06_technician.mp3
-          edge-tts --voice en-US-GuyNeural --rate=+18% --pitch=-2Hz --text "The haunted house has evacuated." --write-media output/07_announcer.mp3
-          edge-tts --voice en-US-JennyNeural --rate=+18% --text "Sir, the exit..." --write-media output/08_loop.mp3
+          edge-tts --voice en-US-JennyNeural --rate=+38% --text "Exit's that way." --write-media output/01_employee.mp3
+          edge-tts --voice en-US-AndrewNeural --rate=+40% --pitch=-5Hz --text "Nope." --write-media output/02_vampire.mp3
+          edge-tts --voice en-US-RogerNeural --rate=+38% --text "I'm out." --write-media output/03_ghoul.mp3
+          edge-tts --voice en-US-AvaNeural --rate=+38% --text "He's been there eleven minutes." --write-media output/04_security.mp3
+          edge-tts --voice en-GB-RyanNeural --rate=+45% --text "Scared?" --write-media output/05_manager.mp3
+          edge-tts --voice en-US-GuyNeural --rate=+45% --text "We are." --write-media output/06_technician.mp3
+          edge-tts --voice en-US-GuyNeural --rate=+35% --pitch=-2Hz --text "The haunted house evacuated." --write-media output/07_announcer.mp3
+          edge-tts --voice en-US-JennyNeural --rate=+40% --text "Exit's that..." --write-media output/08_loop.mp3
       - name: Upload voice bundle
         uses: actions/upload-artifact@v4
         with:
