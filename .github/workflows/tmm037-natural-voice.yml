@@ -1,0 +1,103 @@
+name: Build TMM037 Natural Narration
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tmm037_natural_voice/**'
+      - '.github/workflows/tmm037-natural-voice.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-natural-narration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install speech and media dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y espeak-ng ffmpeg
+          python -m pip install --upgrade pip
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install 'kokoro==0.9.4' 'transformers<5' 'click>=8.1,<9' soundfile numpy
+
+      - name: Decode the locked narration maps
+        run: |
+          base64 -d tmm037_natural_voice/TMM037_Standard_Natural_Voice_Segments_v1.0.json.b64 > tmm037_natural_voice/TMM037_Standard_Natural_Voice_Segments_v1.0.json
+          base64 -d tmm037_natural_voice/TMM037_Vertical_Natural_Voice_Segments_v1.0.json.b64 > tmm037_natural_voice/TMM037_Vertical_Natural_Voice_Segments_v1.0.json
+          python -m json.tool tmm037_natural_voice/TMM037_Standard_Natural_Voice_Segments_v1.0.json >/dev/null
+          python -m json.tool tmm037_natural_voice/TMM037_Vertical_Natural_Voice_Segments_v1.0.json >/dev/null
+
+      - name: Retrieve the approved channel voice builder
+        run: |
+          git fetch origin tmm021-natural-voice --depth=1
+          git show FETCH_HEAD:tmm021_natural_voice/synthesize.py > /tmp/synthesize.py
+          python -m py_compile /tmp/synthesize.py
+
+      - name: Generate locked standard and vertical narration
+        env:
+          HF_HUB_DISABLE_XET: '1'
+        run: |
+          python /tmp/synthesize.py \
+            --standard tmm037_natural_voice/TMM037_Standard_Natural_Voice_Segments_v1.0.json \
+            --vertical tmm037_natural_voice/TMM037_Vertical_Natural_Voice_Segments_v1.0.json \
+            --output dist
+
+      - name: Rename, patch, and verify TMM037 outputs
+        run: |
+          set -euxo pipefail
+          mv dist/TMM021_Who_Was_Judas_Standard_05m05s_Natural_Narration_48k.flac dist/TMM037_One_Miracle_Four_Gospels_Standard_05m05s_Natural_Narration_48k.flac
+          mv dist/TMM021_Who_Was_Judas_Vertical_02m15s_Natural_Narration_48k.flac dist/TMM037_One_Miracle_Four_Gospels_Vertical_02m15s_Natural_Narration_48k.flac
+          mv dist/TMM021_Who_Was_Judas_Standard_05m05s_Voice_Preview_45s.wav dist/TMM037_One_Miracle_Four_Gospels_Standard_05m05s_Voice_Preview_45s.wav
+          mv dist/TMM021_Who_Was_Judas_Vertical_02m15s_Voice_Preview_45s.wav dist/TMM037_One_Miracle_Four_Gospels_Vertical_02m15s_Voice_Preview_45s.wav
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('dist/TMM021_Natural_Voice_Technical_Report.json')
+          data=json.loads(p.read_text(encoding='utf-8'))
+          data['episode_id']='TMM-037'
+          data['title']='The One Miracle All Four Gospels Tell Differently'
+          data['editorial_lock']='v1.0 unchanged; novel firewall preserved'
+          replacements={
+            'TMM021_Who_Was_Judas_Standard_05m05s_Natural_Narration_48k.flac':'TMM037_One_Miracle_Four_Gospels_Standard_05m05s_Natural_Narration_48k.flac',
+            'TMM021_Who_Was_Judas_Vertical_02m15s_Natural_Narration_48k.flac':'TMM037_One_Miracle_Four_Gospels_Vertical_02m15s_Natural_Narration_48k.flac',
+            'TMM021_Who_Was_Judas_Standard_05m05s_Voice_Preview_45s.wav':'TMM037_One_Miracle_Four_Gospels_Standard_05m05s_Voice_Preview_45s.wav',
+            'TMM021_Who_Was_Judas_Vertical_02m15s_Voice_Preview_45s.wav':'TMM037_One_Miracle_Four_Gospels_Vertical_02m15s_Voice_Preview_45s.wav',
+          }
+          text=json.dumps(data,indent=2,ensure_ascii=False)
+          for old,new in replacements.items(): text=text.replace(old,new)
+          Path('dist/TMM037_Natural_Voice_Technical_Report.json').write_text(text,encoding='utf-8')
+          p.unlink()
+          Path('dist/README_TMM037_NATURAL_VOICE.txt').write_text(
+            'TMM-037 NATURAL NARRATION\n\n'
+            'The standard and vertical narration use the approved af_heart channel voice.\n'
+            'No real person was cloned. The locked narration, uncertainty language, and novel firewall are unchanged.\n',
+            encoding='utf-8')
+          Path('dist/README_NATURAL_VOICE.txt').unlink(missing_ok=True)
+          PY
+          test -f dist/TMM037_One_Miracle_Four_Gospels_Standard_05m05s_Natural_Narration_48k.flac
+          test -f dist/TMM037_One_Miracle_Four_Gospels_Vertical_02m15s_Natural_Narration_48k.flac
+          ffprobe -v error -show_entries format=duration -show_entries stream=codec_type,codec_name,sample_rate,channels -of json dist/TMM037_One_Miracle_Four_Gospels_Standard_05m05s_Natural_Narration_48k.flac
+          ffprobe -v error -show_entries format=duration -show_entries stream=codec_type,codec_name,sample_rate,channels -of json dist/TMM037_One_Miracle_Four_Gospels_Vertical_02m15s_Natural_Narration_48k.flac
+          find dist -type d -name 'work_*' -prune -exec rm -rf {} +
+          sha256sum dist/* > dist/SHA256SUMS.txt
+
+      - name: Upload narration artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: TMM037-natural-narration
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 6
