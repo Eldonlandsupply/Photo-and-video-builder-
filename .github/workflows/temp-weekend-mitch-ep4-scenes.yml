@@ -1,0 +1,38 @@
+name: Temporary Weekend at Mitch Episode 4 Scenes
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'temporary/weekend-mitch-ep4-scenes.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  download-scenes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download approved Episode 4 assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:4f8bf17e-c13a-498b-98a3-cf95f7d0f218' -o output/01_first_contact_master.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:edac886e-7172-4b27-860b-45bc4146f560' -o output/02_two_shot_close.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:8fa03925-e7cb-4270-afee-e980b5e48d17' -o output/03_mitch_close.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:def9e624-ed30-41ca-8b98-17ce9cff3954' -o output/04_alien_close.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:b59ca1cb-a8c0-481d-8822-bbef433e2e29' -o output/05_mission_control.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:a73cabd8-30d9-4851-a644-88d6c97cc9aa' -o output/06_hook.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:461280c2-ce50-4ce9-bfed-276ae757b91c' -o output/07_end_card.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:f9e91cc8-23e1-4efd-9a21-a86031faf008' -o output/08_disclosure.png
+          file output/*
+          test "$(find output -type f | wc -l)" -eq 8
+      - name: Upload scene bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekend-mitch-ep4-scenes
+          path: output/*.png
+          if-no-files-found: error
+          retention-days: 1
