@@ -1,0 +1,31 @@
+name: Temporary Weekend at Mitch Episode 3 Recognizable Final Transfer
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'temporary/weekend-mitch-ep3-recognizable-final-url.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  transfer-final:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download completed Adobe render
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p final
+          curl -L --fail --retry 3 "$(cat temporary/weekend-mitch-ep3-recognizable-final-url.txt)" -o final/Weekend_at_Mitchs_Ep3_RECOGNIZABLE_MITCH_FINAL.mp4
+          test -s final/Weekend_at_Mitchs_Ep3_RECOGNIZABLE_MITCH_FINAL.mp4
+          file final/Weekend_at_Mitchs_Ep3_RECOGNIZABLE_MITCH_FINAL.mp4
+      - name: Upload final video
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekend-mitch-ep3-recognizable-final-video
+          path: final/Weekend_at_Mitchs_Ep3_RECOGNIZABLE_MITCH_FINAL.mp4
+          if-no-files-found: error
+          retention-days: 1
