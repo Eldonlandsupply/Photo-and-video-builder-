@@ -19,13 +19,18 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p output
-          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:d2770241-b35f-41f3-b7d6-83a5ed895e93' -o output/01_mitch_haunted.png
-          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:f065aae0-bf72-4305-8765-00a0369a6342' -o output/02_security_room.png
-          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:efa394d4-40c1-4e13-b245-09982769dedc' -o output/03_monsters_flee.png
-          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:5a39338a-0acc-4bd9-bfcd-ff172affc320' -o output/04_hook.png
-          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:b23d6f5c-0ead-40d9-8cd2-36ad6c0e484e' -o output/05_end_card.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:8391d7f9-a58d-4895-b46a-e26594938334' -o output/01_master.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:fdbf4f53-0689-438e-8eac-27f19387e34b' -o output/02_mitch_tight.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:dacd54b4-8451-4ed2-bdd8-92446b9198b6' -o output/03_vampire.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:e85c44d3-2259-43c2-938f-80b213649f9a' -o output/04_ghoul.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:13b2b3f6-73c4-4cb2-8eb3-9459dc759ef8' -o output/05_security.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:56aaf991-6e5f-43da-ae19-6d488617a530' -o output/06_evacuate.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:346c4ac8-53c0-4782-98cc-69f3e6e35d80' -o output/07_hook.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:d1245acb-9091-4d5e-ae62-aa2ca4d2fe27' -o output/08_payoff.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:e156a678-3b01-41cc-8444-5a815190c55a' -o output/09_engagement.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:fff96ac1-8a24-4e78-b8bf-7e744f4eb85e' -o output/10_disclosure.png
           file output/*
-          test "$(find output -type f | wc -l)" -eq 5
+          test "$(find output -type f | wc -l)" -eq 10
       - name: Upload scene bundle
         uses: actions/upload-artifact@v4
         with:
