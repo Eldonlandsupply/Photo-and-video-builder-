@@ -1,0 +1,38 @@
+name: Temporary GOP Emergency Meeting Scenes
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'temporary/gop-emergency-scenes-trigger.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  download-scenes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download approved satire scenes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:fdc49bd3-4f8e-4838-8cf1-178c4c025c99' -o output/01_hook.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:f373985a-cab2-4829-bdb4-dc47767027f5' -o output/02_group.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:7fca1f2d-c508-4e07-a934-6469d0a61886' -o output/03_populist.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:ed5dd782-b2a8-4f48-8d01-64236d7dacaa' -o output/04_chart.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:6a415873-a477-4d1f-90b3-0a04d3153755' -o output/05_cancun.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:524f030d-d550-409d-8d22-469693dabe3d' -o output/06_intern.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:aa7f855e-a78e-4de9-9f05-a96093fef326' -o output/07_punchline.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:a45ecd63-47b4-4c8e-b4d4-b5bb1b60e081' -o output/08_endcard.png
+          file output/*
+          test "$(find output -type f | wc -l)" -eq 8
+      - name: Upload scene bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: gop-emergency-meeting-scenes
+          path: output/*.png
+          if-no-files-found: error
+          retention-days: 1
