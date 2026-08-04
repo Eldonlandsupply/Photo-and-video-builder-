@@ -46,25 +46,51 @@ jobs:
             --vertical tmm071_natural_voice/TMM071_Vertical_Natural_Voice_Segments_v1.0.json \
             --output dist
 
-      - name: Rename and verify TMM071 outputs
+      - name: Rename, patch, and verify TMM071 outputs
         run: |
           set -euxo pipefail
-          mv dist/TMM021_Who_Was_Judas_Standard_05m05s_Natural_Narration_48k.flac dist/TMM071_What_Crucifixion_Was_Designed_To_Do_Standard_05m05s_Natural_Narration_48k.flac
-          mv dist/TMM021_Who_Was_Judas_Vertical_02m15s_Natural_Narration_48k.flac dist/TMM071_What_Crucifixion_Was_Designed_To_Do_Vertical_02m15s_Natural_Narration_48k.flac
-          mv dist/TMM021_Who_Was_Judas_Standard_05m05s_Voice_Preview_45s.wav dist/TMM071_What_Crucifixion_Was_Designed_To_Do_Standard_05m05s_Voice_Preview_45s.wav
-          mv dist/TMM021_Who_Was_Judas_Vertical_02m15s_Voice_Preview_45s.wav dist/TMM071_What_Crucifixion_Was_Designed_To_Do_Vertical_02m15s_Voice_Preview_45s.wav
-          mv dist/TMM021_Natural_Voice_Technical_Report.json dist/TMM071_Natural_Voice_Technical_Report.json
-          mv dist/README_NATURAL_VOICE.txt dist/README_TMM071_NATURAL_VOICE.txt
-          test -f dist/TMM071_What_Crucifixion_Was_Designed_To_Do_Standard_05m05s_Natural_Narration_48k.flac
-          test -f dist/TMM071_What_Crucifixion_Was_Designed_To_Do_Vertical_02m15s_Natural_Narration_48k.flac
-          ffprobe -v error -show_entries format=duration -show_entries stream=codec_type,codec_name,sample_rate,channels -of json dist/TMM071_What_Crucifixion_Was_Designed_To_Do_Standard_05m05s_Natural_Narration_48k.flac
+          mv dist/TMM021_Who_Was_Judas_Standard_05m05s_Natural_Narration_48k.flac dist/TMM071_What_Crucifixion_Was_Designed_To_Do_Standard_05m14s_Natural_Narration_48k.flac
+          mv dist/TMM021_Who_Was_Judas_Vertical_02m15s_Natural_Narration_48k.flac dist/TMM071_What_Crucifixion_Was_Designed_To_Do_Vertical_02m38s_Natural_Narration_48k.flac
+          mv dist/TMM021_Who_Was_Judas_Standard_05m05s_Voice_Preview_45s.wav dist/TMM071_What_Crucifixion_Was_Designed_To_Do_Standard_05m14s_Voice_Preview_45s.wav
+          mv dist/TMM021_Who_Was_Judas_Vertical_02m15s_Voice_Preview_45s.wav dist/TMM071_What_Crucifixion_Was_Designed_To_Do_Vertical_02m38s_Voice_Preview_45s.wav
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('dist/TMM021_Natural_Voice_Technical_Report.json')
+          data = json.loads(p.read_text(encoding='utf-8'))
+          data['episode_id'] = 'TMM-071'
+          data['title'] = 'What Crucifixion Was Designed to Do'
+          data['editorial_lock'] = 'v2.0 unchanged; Roman responsibility, uncertainty language, no-collective-blame guardrail, and novel firewall preserved'
+          replacements = {
+            'TMM021_Who_Was_Judas_Standard_05m05s_Natural_Narration_48k.flac': 'TMM071_What_Crucifixion_Was_Designed_To_Do_Standard_05m14s_Natural_Narration_48k.flac',
+            'TMM021_Who_Was_Judas_Vertical_02m15s_Natural_Narration_48k.flac': 'TMM071_What_Crucifixion_Was_Designed_To_Do_Vertical_02m38s_Natural_Narration_48k.flac',
+            'TMM021_Who_Was_Judas_Standard_05m05s_Voice_Preview_45s.wav': 'TMM071_What_Crucifixion_Was_Designed_To_Do_Standard_05m14s_Voice_Preview_45s.wav',
+            'TMM021_Who_Was_Judas_Vertical_02m15s_Voice_Preview_45s.wav': 'TMM071_What_Crucifixion_Was_Designed_To_Do_Vertical_02m38s_Voice_Preview_45s.wav',
+          }
+          text = json.dumps(data, indent=2, ensure_ascii=False)
+          for old, new in replacements.items():
+              text = text.replace(old, new)
+          Path('dist/TMM071_Natural_Voice_Technical_Report.json').write_text(text, encoding='utf-8')
+          p.unlink()
+          Path('dist/README_TMM071_NATURAL_VOICE.txt').write_text(
+              'TMM-071 NATURAL NARRATION v2.0\n\n'
+              'The 05:14 standard and 02:38 vertical narration use the approved af_heart synthetic channel voice.\n'
+              'No real person was cloned. The locked historical claims, uncertainty language, Roman-responsibility statement, no-collective-blame guardrail, and novel firewall are unchanged.\n',
+              encoding='utf-8',
+          )
+          Path('dist/README_NATURAL_VOICE.txt').unlink(missing_ok=True)
+          PY
+          test -f dist/TMM071_What_Crucifixion_Was_Designed_To_Do_Standard_05m14s_Natural_Narration_48k.flac
+          test -f dist/TMM071_What_Crucifixion_Was_Designed_To_Do_Vertical_02m38s_Natural_Narration_48k.flac
+          ffprobe -v error -show_entries format=duration -show_entries stream=codec_type,codec_name,sample_rate,channels -of json dist/TMM071_What_Crucifixion_Was_Designed_To_Do_Standard_05m14s_Natural_Narration_48k.flac
+          ffprobe -v error -show_entries format=duration -show_entries stream=codec_type,codec_name,sample_rate,channels -of json dist/TMM071_What_Crucifixion_Was_Designed_To_Do_Vertical_02m38s_Natural_Narration_48k.flac
           find dist -type d -name 'work_*' -prune -exec rm -rf {} +
           sha256sum dist/* > dist/SHA256SUMS.txt
 
       - name: Upload narration artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: TMM071-natural-narration
+          name: TMM071-natural-narration-v2
           path: dist/
           if-no-files-found: error
           retention-days: 14
