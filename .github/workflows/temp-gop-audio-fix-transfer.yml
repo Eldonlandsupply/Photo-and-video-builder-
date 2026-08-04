@@ -1,0 +1,31 @@
+name: Temporary GOP Audio Fix Transfer
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'temporary/gop-audio-fix-url.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  transfer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download audio-fixed render
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p final
+          curl -L --fail --retry 3 "$(cat temporary/gop-audio-fix-url.txt)" -o final/GOP_Emergency_Meeting_AUDIO_FIXED.mp4
+          test -s final/GOP_Emergency_Meeting_AUDIO_FIXED.mp4
+          file final/GOP_Emergency_Meeting_AUDIO_FIXED.mp4
+      - name: Upload fixed video
+        uses: actions/upload-artifact@v4
+        with:
+          name: gop-emergency-meeting-audio-fixed
+          path: final/GOP_Emergency_Meeting_AUDIO_FIXED.mp4
+          if-no-files-found: error
+          retention-days: 1
