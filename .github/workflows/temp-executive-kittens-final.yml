@@ -1,0 +1,31 @@
+name: Temporary Executive Kittens Final Transfer
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'temporary/executive-kittens-final-url.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  transfer-final:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download completed Adobe render
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p final
+          curl -L --fail --retry 3 "$(cat temporary/executive-kittens-final-url.txt)" -o final/Executive_Kittens_The_Interns_Took_Over_FINAL.mp4
+          test -s final/Executive_Kittens_The_Interns_Took_Over_FINAL.mp4
+          file final/Executive_Kittens_The_Interns_Took_Over_FINAL.mp4
+      - name: Upload final video
+        uses: actions/upload-artifact@v4
+        with:
+          name: executive-kittens-final-video
+          path: final/Executive_Kittens_The_Interns_Took_Over_FINAL.mp4
+          if-no-files-found: error
+          retention-days: 1
