@@ -1,0 +1,89 @@
+name: Temporary Paxton Self-Investigation Audio
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'temporary/paxton-self-investigation-trigger.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  build-audio:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install voice and audio tools
+        run: |
+          python -m pip install --disable-pip-version-check edge-tts pydub
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+      - name: Generate fictional non-imitative voices
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/voice
+          edge-tts --voice en-US-RogerNeural --rate=+22% --text "Sir, the voter fraud complaint names you." --write-media output/voice/01_aide.mp3
+          edge-tts --voice en-US-GuyNeural --rate=+18% --pitch=-4Hz --text "Send it to the attorney general." --write-media output/voice/02_paxton.mp3
+          edge-tts --voice en-US-RogerNeural --rate=+28% --text "You are the attorney general." --write-media output/voice/03_aide.mp3
+          edge-tts --voice en-US-GuyNeural --rate=+28% --pitch=-4Hz --text "Exactly. I know a guy." --write-media output/voice/04_paxton.mp3
+          edge-tts --voice en-US-AndrewNeural --rate=+45% --pitch=-8Hz --text "Cleared." --write-media output/voice/05_detective.mp3
+          edge-tts --voice en-US-RogerNeural --rate=+28% --text "Sir, another complaint." --write-media output/voice/06_loop.mp3
+      - name: Mix final 48 kHz stereo WAV
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from pydub import AudioSegment
+          from pydub.generators import Sine, WhiteNoise
+          from pydub.effects import normalize
+
+          root = Path('output')
+          voice = root / 'voice'
+          total_ms = 10400
+          mix = AudioSegment.silent(duration=total_ms, frame_rate=48000).set_channels(2)
+
+          # Quiet office-room tone so the track never feels digitally dead.
+          room = WhiteNoise().to_audio_segment(duration=total_ms, volume=-48).set_frame_rate(48000).set_channels(2)
+          hum = Sine(58).to_audio_segment(duration=total_ms, volume=-55).set_frame_rate(48000).set_channels(2)
+          mix = mix.overlay(room).overlay(hum)
+
+          timings = [
+              ('01_aide.mp3', 330, -1.0),
+              ('02_paxton.mp3', 2000, -0.5),
+              ('03_aide.mp3', 3750, -0.5),
+              ('04_paxton.mp3', 5200, -0.2),
+              ('05_detective.mp3', 6800, 0.0),
+              ('06_loop.mp3', 9100, -0.5),
+          ]
+          for filename, start, gain in timings:
+              clip = AudioSegment.from_file(voice / filename).set_frame_rate(48000).set_channels(2)
+              clip = normalize(clip, headroom=1.0) + gain
+              mix = mix.overlay(clip, position=start)
+
+          # Opening whoosh.
+          whoosh = WhiteNoise().to_audio_segment(duration=420, volume=-24).fade_in(40).fade_out(300)
+          whoosh = whoosh.high_pass_filter(700).set_frame_rate(48000).set_channels(2)
+          mix = mix.overlay(whoosh, position=0)
+
+          # Rubber-stamp impact under the reveal.
+          thump = Sine(82).to_audio_segment(duration=520, volume=-7).fade_out(480)
+          crack = WhiteNoise().to_audio_segment(duration=95, volume=-12).fade_out(90)
+          stamp = thump.overlay(crack).set_frame_rate(48000).set_channels(2)
+          mix = mix.overlay(stamp, position=7250)
+
+          # Keep dialogue loud and safe for phone playback.
+          mix = normalize(mix, headroom=0.8)
+          mix.export(root / 'Paxton_Self_Investigation_FINAL_AUDIO.wav', format='wav', parameters=['-acodec', 'pcm_s16le', '-ar', '48000', '-ac', '2'])
+          PY
+      - name: Upload audio artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: paxton-self-investigation-audio
+          path: output/Paxton_Self_Investigation_FINAL_AUDIO.wav
+          if-no-files-found: error
+          retention-days: 1
