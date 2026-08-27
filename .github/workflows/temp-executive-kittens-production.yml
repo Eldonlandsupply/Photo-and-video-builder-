@@ -1,0 +1,124 @@
+name: Temporary Executive Kittens Production
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'temporary/executive-kittens-trigger.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  build-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download generated frames
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:468b7bb6-e5a0-4d64-81f5-aebf2c4e74a4' -o output/01_master.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:2556c1be-86d6-4c72-86b4-b16178000b1f' -o output/02_lean_left.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:8f2fc1e5-a17c-4871-805f-f14d1aa23e80' -o output/03_lean_right.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:08546843-869e-461f-9ed1-2dcadecc7157' -o output/04_center_hop.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:f8e7f492-f770-48b7-bda2-c7b2a76b63c1' -o output/05_cross_paws.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:40de9ca0-58f3-4b9a-97c6-fc6d366b9839' -o output/06_point_up.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:813bbb5d-8665-4082-ae9c-5a4aec9c802b' -o output/07_squat.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:6266f31f-76ee-472e-9fbc-91c0fd8a85cb' -o output/08_final_pose.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:0b05e970-9f1c-4363-87a3-dbe88a52b62b' -o output/09_nameplate_push.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:185bac51-49e1-419d-b4b3-3bf4566b7619' -o output/10_takeover.png
+          file output/*.png
+      - name: Generate original seamless dance beat
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import math, random, struct, wave
+          from pathlib import Path
+
+          sr = 44100
+          duration = 8.0
+          n = int(sr * duration)
+          bpm = 128.0
+          beat = 60.0 / bpm
+          random.seed(20260803)
+          samples = [0.0] * n
+
+          def add(start, length, fn, gain=1.0):
+              i0 = max(0, int(start * sr))
+              i1 = min(n, i0 + int(length * sr))
+              for i in range(i0, i1):
+                  t = (i - i0) / sr
+                  samples[i] += gain * fn(t, length)
+
+          def kick(t, length):
+              env = math.exp(-8.5 * t / max(length, 1e-6))
+              freq = 72 - 35 * min(1, t / max(length, 1e-6))
+              return math.sin(2 * math.pi * freq * t) * env
+
+          def snare(t, length):
+              env = math.exp(-12 * t / max(length, 1e-6))
+              noise = random.uniform(-1, 1)
+              tone = math.sin(2 * math.pi * 190 * t) * 0.25
+              return (noise * 0.75 + tone) * env
+
+          def hat(t, length):
+              env = math.exp(-30 * t / max(length, 1e-6))
+              return random.uniform(-1, 1) * env
+
+          def bass(freq):
+              def f(t, length):
+                  env = min(1.0, t / 0.01) * math.exp(-2.3 * t / max(length, 1e-6))
+                  return (math.sin(2 * math.pi * freq * t) + 0.32 * math.sin(4 * math.pi * freq * t)) * env
+              return f
+
+          def pluck(freq):
+              def f(t, length):
+                  env = math.exp(-7 * t / max(length, 1e-6))
+                  return (math.sin(2*math.pi*freq*t) + 0.35*math.sin(2*math.pi*freq*2*t)) * env
+              return f
+
+          beats = int(duration / beat) + 1
+          bass_notes = [55.0, 65.41, 73.42, 65.41]
+          for b in range(beats):
+              t = b * beat
+              add(t, 0.24, kick, 0.85)
+              if b % 2 == 1:
+                  add(t, 0.18, snare, 0.42)
+              add(t, beat * 0.9, bass(bass_notes[b % 4]), 0.22)
+              add(t, 0.16, pluck([220, 261.63, 293.66, 261.63][b % 4]), 0.12)
+              add(t + beat / 2, 0.06, hat, 0.13)
+          for h in range(int(duration / (beat / 4))):
+              add(h * beat / 4, 0.035, hat, 0.07)
+
+          # takeover impact at 6.5 seconds
+          add(6.48, 0.5, kick, 1.1)
+          add(6.50, 0.32, snare, 0.7)
+          add(6.52, 0.8, pluck(440), 0.22)
+
+          # gentle fade at exact loop boundary
+          peak = max(max(samples), -min(samples), 1e-9)
+          scale = 0.88 / peak
+          pcm = bytearray()
+          for i, s in enumerate(samples):
+              edge = min(1.0, i / 120.0, (n - 1 - i) / 120.0)
+              v = max(-1.0, min(1.0, s * scale * edge))
+              iv = int(v * 32767)
+              pcm += struct.pack('<hh', iv, iv)
+
+          out = Path('output/executive_kittens_original_beat.wav')
+          with wave.open(str(out), 'wb') as w:
+              w.setnchannels(2)
+              w.setsampwidth(2)
+              w.setframerate(sr)
+              w.writeframes(pcm)
+          print(out)
+          PY
+      - name: Upload production assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: executive-kittens-production-assets
+          path: output/*
+          if-no-files-found: error
+          retention-days: 1

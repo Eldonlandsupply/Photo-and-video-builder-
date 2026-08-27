@@ -1,0 +1,38 @@
+name: Temporary Original Ideas Only Visuals
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'temporary/original-ideas-only-visuals.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  download-visuals:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download approved visual assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:7eb2bdb0-48e6-44d6-8226-46fb0d0740c7' -o output/01_hook.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:4165e36c-9aed-460d-ab35-0b7d3991cf75' -o output/02_group.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:30dafb24-8c79-489b-8713-7d9493022f3a' -o output/03_president.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:2972feb6-29e9-410f-812a-d1e923dbc452' -o output/04_vp.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:ac3a4367-da0c-465a-9b31-754c940f2aab' -o output/05_lawyer.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:986a00c8-50ac-40b5-8912-3c159b0d1329' -o output/06_press.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:91de2ba3-5da2-4a88-bf8a-8970a8469068' -o output/07_mute.png
+          curl -L --fail --retry 3 'https://photoshop-api.adobe.io/v2/short-url/urn:aaid:ps:US:32034c46-e258-4729-833d-7474d991ddfe' -o output/08_endcard.png
+          file output/*
+          test "$(find output -type f | wc -l)" -eq 8
+      - name: Upload visual bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-ideas-only-visuals
+          path: output/*.png
+          if-no-files-found: error
+          retention-days: 1

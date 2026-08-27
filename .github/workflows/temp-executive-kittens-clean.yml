@@ -1,0 +1,31 @@
+name: Temporary Executive Kittens Clean Transfer
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'temporary/executive-kittens-clean-url.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  transfer-clean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download clean Adobe render
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p final
+          curl -L --fail --retry 3 "$(cat temporary/executive-kittens-clean-url.txt)" -o final/Executive_Kittens_CLEAN_FOR_TRENDING_AUDIO.mp4
+          test -s final/Executive_Kittens_CLEAN_FOR_TRENDING_AUDIO.mp4
+          file final/Executive_Kittens_CLEAN_FOR_TRENDING_AUDIO.mp4
+      - name: Upload clean video
+        uses: actions/upload-artifact@v4
+        with:
+          name: executive-kittens-clean-video
+          path: final/Executive_Kittens_CLEAN_FOR_TRENDING_AUDIO.mp4
+          if-no-files-found: error
+          retention-days: 1

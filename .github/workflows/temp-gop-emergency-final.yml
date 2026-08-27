@@ -1,0 +1,31 @@
+name: Temporary GOP Emergency Meeting Final Transfer
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'temporary/gop-emergency-final-url.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  transfer-final:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download completed Adobe render
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p final
+          curl -L --fail --retry 3 "$(cat temporary/gop-emergency-final-url.txt)" -o final/GOP_Emergency_Meeting_BAN_RECEIPTS_FINAL.mp4
+          test -s final/GOP_Emergency_Meeting_BAN_RECEIPTS_FINAL.mp4
+          file final/GOP_Emergency_Meeting_BAN_RECEIPTS_FINAL.mp4
+      - name: Upload final video
+        uses: actions/upload-artifact@v4
+        with:
+          name: gop-emergency-meeting-final-video
+          path: final/GOP_Emergency_Meeting_BAN_RECEIPTS_FINAL.mp4
+          if-no-files-found: error
+          retention-days: 1

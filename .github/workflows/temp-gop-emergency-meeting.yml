@@ -1,0 +1,74 @@
+name: Temporary GOP Emergency Meeting Audio
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'temporary/gop-emergency-meeting-trigger.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  generate-audio:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install natural TTS
+        run: python -m pip install --disable-pip-version-check edge-tts
+      - name: Generate fictional non-imitative dialogue
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          edge-tts --voice en-US-GuyNeural --rate=+20% --pitch=-3Hz --text "Okay. Who lost the economy?" --write-media output/01_leader_question.mp3
+          edge-tts --voice en-US-RogerNeural --rate=+28% --text "Can we deport the poll?" --write-media output/02_populist_poll.mp3
+          edge-tts --voice en-US-AndrewNeural --rate=+25% --text "I turned the chart upside down. We're winning." --write-media output/03_chart_winning.mp3
+          edge-tts --voice en-GB-RyanNeural --rate=+27% --text "I'll take the economy to Cancun." --write-media output/04_cancun.mp3
+          edge-tts --voice en-US-JennyNeural --rate=+25% --text "Sir, voters have receipts." --write-media output/05_intern_receipts.mp3
+          edge-tts --voice en-US-GuyNeural --rate=+35% --pitch=-3Hz --text "Then ban receipts." --write-media output/06_ban_receipts.mp3
+          edge-tts --voice en-US-GuyNeural --rate=+25% --pitch=-3Hz --text "Okay..." --write-media output/07_loop.mp3
+      - name: Create original sound effects
+        shell: bash
+        run: |
+          python - <<'PY'
+          import math, wave, struct, random
+          sr = 44100
+          def write(name, samples):
+              with wave.open(name, 'w') as w:
+                  w.setnchannels(1); w.setsampwidth(2); w.setframerate(sr)
+                  w.writeframes(b''.join(struct.pack('<h', max(-32767, min(32767, int(x*32767)))) for x in samples))
+          # Short receipt-printer chirp / paper chatter.
+          dur = 0.85
+          samples=[]
+          for i in range(int(sr*dur)):
+              t=i/sr
+              env=max(0,1-t/dur)
+              chatter=(1 if int(t*45)%2==0 else -1)*0.07
+              tone=0.12*math.sin(2*math.pi*(1300+300*t)*t)
+              noise=(random.random()*2-1)*0.035
+              samples.append((tone+chatter+noise)*env)
+          write('output/fx_receipt_printer.wav', samples)
+          # Punchline bass thump.
+          dur=0.8; samples=[]
+          for i in range(int(sr*dur)):
+              t=i/sr; env=math.exp(-6*t)
+              samples.append(0.75*math.sin(2*math.pi*(85-35*t)*t)*env)
+          write('output/fx_bass_hit.wav', samples)
+          # Subtle loop riser.
+          dur=0.65; samples=[]
+          for i in range(int(sr*dur)):
+              t=i/sr; env=t/dur
+              samples.append(0.12*math.sin(2*math.pi*(350+900*t)*t)*env)
+          write('output/fx_loop_riser.wav', samples)
+          PY
+      - name: Upload audio bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: gop-emergency-meeting-audio
+          path: output/*
+          if-no-files-found: error
+          retention-days: 1

@@ -1,0 +1,85 @@
+name: Temporary Original Ideas Only Audio
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'temporary/original-ideas-only-trigger.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  generate-audio:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install natural TTS
+        run: python -m pip install --disable-pip-version-check edge-tts
+      - name: Generate fictional non-imitative dialogue
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          edge-tts --voice en-US-GuyNeural --rate=+30% --pitch=-3Hz --text "We need an original video." --write-media output/01_president.mp3
+          edge-tts --voice en-US-AndrewNeural --rate=+32% --text "Remake the Nicole Kidman theater ad." --write-media output/02_vp.mp3
+          edge-tts --voice en-US-JennyNeural --rate=+32% --text "That's copyrighted." --write-media output/03_lawyer_copyrighted.mp3
+          edge-tts --voice en-US-GuyNeural --rate=+38% --pitch=-3Hz --text "Add a red hat." --write-media output/04_president_hat.mp3
+          edge-tts --voice en-US-AvaNeural --rate=+38% --text "Transformative." --write-media output/05_press_transformative.mp3
+          edge-tts --voice en-US-JennyNeural --rate=+34% --text "That's not how that works." --write-media output/06_lawyer_works.mp3
+          edge-tts --voice en-US-RogerNeural --rate=+42% --pitch=-4Hz --text "Mute legal." --write-media output/07_aide_mute.mp3
+          edge-tts --voice en-US-GuyNeural --rate=+32% --pitch=-3Hz --text "We need an original..." --write-media output/08_loop.mp3
+      - name: Create original sound effects
+        shell: bash
+        run: |
+          python - <<'PY'
+          import math, random, struct, wave
+          sr = 44100
+          def write(path, samples):
+              with wave.open(path, 'w') as w:
+                  w.setnchannels(1); w.setsampwidth(2); w.setframerate(sr)
+                  data = bytearray()
+                  for x in samples:
+                      x = max(-1.0, min(1.0, x))
+                      data.extend(struct.pack('<h', int(x * 32767)))
+                  w.writeframes(bytes(data))
+          # Fast hook whoosh.
+          dur=.42; samples=[]
+          for i in range(int(sr*dur)):
+              t=i/sr; env=math.sin(math.pi*t/dur)**2
+              freq=250+1800*(t/dur)
+              samples.append((0.16*math.sin(2*math.pi*freq*t)+(random.random()*2-1)*0.05)*env)
+          write('output/fx_hook_whoosh.wav', samples)
+          # Mute-button click and low digital thunk.
+          dur=.55; samples=[]
+          for i in range(int(sr*dur)):
+              t=i/sr
+              click=(0.75 if i<100 else 0)
+              thunk=0.55*math.sin(2*math.pi*(115-55*t)*t)*math.exp(-9*t)
+              samples.append(click+thunk)
+          write('output/fx_mute_click.wav', samples)
+          # Approval stamp hit.
+          dur=.65; samples=[]
+          for i in range(int(sr*dur)):
+              t=i/sr
+              low=0.7*math.sin(2*math.pi*78*t)*math.exp(-7*t)
+              snap=(random.random()*2-1)*0.25*math.exp(-18*t)
+              samples.append(low+snap)
+          write('output/fx_stamp.wav', samples)
+          # Loop riser.
+          dur=.55; samples=[]
+          for i in range(int(sr*dur)):
+              t=i/sr; env=(t/dur)**1.5
+              samples.append(0.11*math.sin(2*math.pi*(420+1000*t)*t)*env)
+          write('output/fx_loop_riser.wav', samples)
+          PY
+      - name: Upload audio bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-ideas-only-audio
+          path: output/*
+          if-no-files-found: error
+          retention-days: 1
