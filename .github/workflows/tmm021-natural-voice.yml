@@ -1,0 +1,61 @@
+name: Build TMM021 Natural Narration
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tmm021_natural_voice/**'
+      - '.github/workflows/tmm021-natural-voice.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-natural-narration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install speech and media dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y espeak-ng ffmpeg
+          python -m pip install --upgrade pip
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install 'kokoro==0.9.4' 'transformers<5' 'click>=8.1,<9' soundfile numpy
+
+      - name: Generate the locked standard and vertical narration
+        env:
+          HF_HUB_DISABLE_XET: '1'
+        run: |
+          python tmm021_natural_voice/synthesize.py \
+            --standard tmm021_natural_voice/standard_segments.json \
+            --vertical tmm021_natural_voice/vertical_segments.json \
+            --output dist
+
+      - name: Verify outputs
+        run: |
+          set -euxo pipefail
+          test -f dist/TMM021_Who_Was_Judas_Standard_05m05s_Natural_Narration_48k.flac
+          test -f dist/TMM021_Who_Was_Judas_Vertical_02m15s_Natural_Narration_48k.flac
+          test -f dist/TMM021_Who_Was_Judas_Standard_05m05s_Voice_Preview_45s.wav
+          test -f dist/TMM021_Who_Was_Judas_Vertical_02m15s_Voice_Preview_45s.wav
+          ffprobe -v error -show_entries format=duration -show_entries stream=codec_type,codec_name,sample_rate,channels -of json dist/TMM021_Who_Was_Judas_Standard_05m05s_Natural_Narration_48k.flac
+          ffprobe -v error -show_entries format=duration -show_entries stream=codec_type,codec_name,sample_rate,channels -of json dist/TMM021_Who_Was_Judas_Vertical_02m15s_Natural_Narration_48k.flac
+          find dist -type d -name 'work_*' -prune -exec rm -rf {} +
+          sha256sum dist/* > dist/SHA256SUMS.txt
+
+      - name: Upload narration artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: TMM021-natural-narration
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 6
