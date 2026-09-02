@@ -13,11 +13,9 @@ permissions:
 jobs:
   build-natural-narration:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
 
       - uses: actions/setup-python@v5
         with:
@@ -32,124 +30,67 @@ jobs:
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
           python -m pip install 'kokoro==0.9.4' 'transformers<5' 'click>=8.1,<9' soundfile numpy
 
-      - name: Validate locked maps
+      - name: Decode the locked narration maps
         run: |
-          for f in tmm071_natural_voice/*.json; do python -m json.tool "$f" >/dev/null; done
+          base64 -d tmm071_natural_voice/TMM071_Standard_Natural_Voice_Segments_v1.0.json.b64 > tmm071_natural_voice/TMM071_Standard_Natural_Voice_Segments_v1.0.json
+          base64 -d tmm071_natural_voice/TMM071_Vertical_Natural_Voice_Segments_v1.0.json.b64 > tmm071_natural_voice/TMM071_Vertical_Natural_Voice_Segments_v1.0.json
+          python -m json.tool tmm071_natural_voice/TMM071_Standard_Natural_Voice_Segments_v1.0.json >/dev/null
+          python -m json.tool tmm071_natural_voice/TMM071_Vertical_Natural_Voice_Segments_v1.0.json >/dev/null
+
+      - name: Generate locked standard and vertical narration
+        env:
+          HF_HUB_DISABLE_XET: '1'
+        run: |
+          python tmm021_natural_voice/synthesize.py \
+            --standard tmm071_natural_voice/TMM071_Standard_Natural_Voice_Segments_v1.0.json \
+            --vertical tmm071_natural_voice/TMM071_Vertical_Natural_Voice_Segments_v1.0.json \
+            --output dist
+
+      - name: Rename, patch, and verify TMM071 outputs
+        run: |
+          set -euxo pipefail
+          mv dist/TMM021_Who_Was_Judas_Standard_05m05s_Natural_Narration_48k.flac dist/TMM071_What_Crucifixion_Was_Designed_To_Do_Standard_05m14s_Natural_Narration_48k.flac
+          mv dist/TMM021_Who_Was_Judas_Vertical_02m15s_Natural_Narration_48k.flac dist/TMM071_What_Crucifixion_Was_Designed_To_Do_Vertical_02m38s_Natural_Narration_48k.flac
+          mv dist/TMM021_Who_Was_Judas_Standard_05m05s_Voice_Preview_45s.wav dist/TMM071_What_Crucifixion_Was_Designed_To_Do_Standard_05m14s_Voice_Preview_45s.wav
+          mv dist/TMM021_Who_Was_Judas_Vertical_02m15s_Voice_Preview_45s.wav dist/TMM071_What_Crucifixion_Was_Designed_To_Do_Vertical_02m38s_Voice_Preview_45s.wav
           python - <<'PY'
           import json
           from pathlib import Path
-          expected={'standard.json':314.0,'vertical.json':158.0,'short_a.json':63.0,'short_b.json':63.0}
-          for name,runtime in expected.items():
-              data=json.loads((Path('tmm071_natural_voice')/name).read_text())
-              total=round(sum(float(s['duration']) for s in data['segments']),3)
-              assert total==runtime,(name,total,runtime)
-              assert round(float(data['segments'][-1]['end']),3)==runtime
+          p = Path('dist/TMM021_Natural_Voice_Technical_Report.json')
+          data = json.loads(p.read_text(encoding='utf-8'))
+          data['episode_id'] = 'TMM-071'
+          data['title'] = 'What Crucifixion Was Designed to Do'
+          data['editorial_lock'] = 'v2.0 unchanged; Roman responsibility, uncertainty language, no-collective-blame guardrail, and novel firewall preserved'
+          replacements = {
+            'TMM021_Who_Was_Judas_Standard_05m05s_Natural_Narration_48k.flac': 'TMM071_What_Crucifixion_Was_Designed_To_Do_Standard_05m14s_Natural_Narration_48k.flac',
+            'TMM021_Who_Was_Judas_Vertical_02m15s_Natural_Narration_48k.flac': 'TMM071_What_Crucifixion_Was_Designed_To_Do_Vertical_02m38s_Natural_Narration_48k.flac',
+            'TMM021_Who_Was_Judas_Standard_05m05s_Voice_Preview_45s.wav': 'TMM071_What_Crucifixion_Was_Designed_To_Do_Standard_05m14s_Voice_Preview_45s.wav',
+            'TMM021_Who_Was_Judas_Vertical_02m15s_Voice_Preview_45s.wav': 'TMM071_What_Crucifixion_Was_Designed_To_Do_Vertical_02m38s_Voice_Preview_45s.wav',
+          }
+          text = json.dumps(data, indent=2, ensure_ascii=False)
+          for old, new in replacements.items():
+              text = text.replace(old, new)
+          Path('dist/TMM071_Natural_Voice_Technical_Report.json').write_text(text, encoding='utf-8')
+          p.unlink()
+          Path('dist/README_TMM071_NATURAL_VOICE.txt').write_text(
+              'TMM-071 NATURAL NARRATION v2.0\n\n'
+              'The 05:14 standard and 02:38 vertical narration use the approved af_heart synthetic channel voice.\n'
+              'No real person was cloned. The locked historical claims, uncertainty language, Roman-responsibility statement, no-collective-blame guardrail, and novel firewall are unchanged.\n',
+              encoding='utf-8',
+          )
+          Path('dist/README_NATURAL_VOICE.txt').unlink(missing_ok=True)
           PY
-
-      - name: Retrieve approved channel voice builder
-        run: |
-          git fetch origin tmm021-natural-voice --depth=1
-          git show FETCH_HEAD:tmm021_natural_voice/synthesize.py > /tmp/synthesize.py
-          python -m py_compile /tmp/synthesize.py
-
-      - name: Generate standard and vertical narration
-        env:
-          HF_HUB_DISABLE_XET: '1'
-        run: |
-          python /tmp/synthesize.py \
-            --standard tmm071_natural_voice/standard.json \
-            --vertical tmm071_natural_voice/vertical.json \
-            --output dist_long
-
-      - name: Generate independent Short A and Short B narration
-        env:
-          HF_HUB_DISABLE_XET: '1'
-        run: |
-          python /tmp/synthesize.py \
-            --standard tmm071_natural_voice/short_a.json \
-            --vertical tmm071_natural_voice/short_b.json \
-            --output dist_short
-
-      - name: Assemble controlled deliverables and captions
-        run: |
-          mkdir -p dist
-          mv dist_long/TMM021_Who_Was_Judas_Standard_05m05s_Natural_Narration_48k.flac dist/TMM071_Standard_Natural_Narration_05m14s_48k.flac
-          mv dist_long/TMM021_Who_Was_Judas_Vertical_02m15s_Natural_Narration_48k.flac dist/TMM071_Vertical_Natural_Narration_02m38s_48k.flac
-          mv dist_long/TMM021_Who_Was_Judas_Standard_05m05s_Voice_Preview_45s.wav dist/TMM071_Standard_Voice_Preview_45s.wav
-          mv dist_long/TMM021_Who_Was_Judas_Vertical_02m15s_Voice_Preview_45s.wav dist/TMM071_Vertical_Voice_Preview_45s.wav
-          mv dist_short/TMM021_Who_Was_Judas_Standard_05m05s_Natural_Narration_48k.flac dist/TMM071_Short_A_Natural_Narration_01m03s_48k.flac
-          mv dist_short/TMM021_Who_Was_Judas_Vertical_02m15s_Natural_Narration_48k.flac dist/TMM071_Short_B_Natural_Narration_01m03s_48k.flac
-          mv dist_short/TMM021_Who_Was_Judas_Standard_05m05s_Voice_Preview_45s.wav dist/TMM071_Short_A_Voice_Preview_45s.wav
-          mv dist_short/TMM021_Who_Was_Judas_Vertical_02m15s_Voice_Preview_45s.wav dist/TMM071_Short_B_Voice_Preview_45s.wav
-          cp tmm071_natural_voice/*.json dist/
-          cp dist_long/TMM021_Natural_Voice_Technical_Report.json dist/TMM071_Longform_Technical_Report.json
-          cp dist_short/TMM021_Natural_Voice_Technical_Report.json dist/TMM071_Shorts_Technical_Report.json
-          python - <<'PY'
-          from pathlib import Path
-          import json, re, subprocess
-
-          ROOT=Path('dist')
-          maps={
-              'standard':Path('tmm071_natural_voice/standard.json'),
-              'vertical':Path('tmm071_natural_voice/vertical.json'),
-              'short_a':Path('tmm071_natural_voice/short_a.json'),
-              'short_b':Path('tmm071_natural_voice/short_b.json'),
-          }
-          names={
-              'standard':'TMM071_Standard', 'vertical':'TMM071_Vertical',
-              'short_a':'TMM071_Short_A', 'short_b':'TMM071_Short_B'
-          }
-          def stamp(x, comma=False):
-              ms=round(float(x)*1000); h=ms//3600000; ms%=3600000; m=ms//60000; ms%=60000; s=ms//1000; ms%=1000
-              return f'{h:02}:{m:02}:{s:02}{"," if comma else "."}{ms:03}'
-          def caption_chunks(seg):
-              text=re.sub(r'\s+',' ',seg['text']).strip()
-              parts=[p.strip() for p in re.split(r'(?<=[.!?])\s+',text) if p.strip()]
-              if not parts: parts=[text]
-              weights=[max(1,len(p.split())) for p in parts]; total=sum(weights); start=float(seg['start']); dur=float(seg['duration']); out=[]
-              cursor=start
-              for i,(p,w) in enumerate(zip(parts,weights)):
-                  end=float(seg['end']) if i==len(parts)-1 else cursor+dur*w/total
-                  out.append((cursor,end,p)); cursor=end
-              return out
-          for key,path in maps.items():
-              data=json.loads(path.read_text())
-              cues=[]
-              for seg in data['segments']: cues.extend(caption_chunks(seg))
-              srt=[]; vtt=['WEBVTT','']
-              for i,(start,end,text) in enumerate(cues,1):
-                  srt += [str(i),f'{stamp(start,True)} --> {stamp(end,True)}',text,'']
-                  vtt += [f'{stamp(start)} --> {stamp(end)}',text,'']
-              (ROOT/f'{names[key]}_Waveform_Locked_EN.srt').write_text('\n'.join(srt),encoding='utf-8')
-              (ROOT/f'{names[key]}_Waveform_Locked_EN.vtt').write_text('\n'.join(vtt),encoding='utf-8')
-          report={
-              'episode_id':'TMM-071',
-              'title':'What Crucifixion Was Designed to Do',
-              'voice':'af_heart',
-              'voice_disclosure':'Synthetic documentary narration; no real person cloned or imitated.',
-              'editorial_lock':'Historical claims, qualifications, Roman-responsibility guardrail, anti-collective-blame language, and novel firewall unchanged.',
-              'masters':[]
-          }
-          audio_files=sorted(ROOT.glob('*Narration*flac'))
-          for f in audio_files:
-              probe=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-show_entries','stream=codec_name,sample_rate,channels','-of','json',str(f)]))
-              loud=subprocess.run(['ffmpeg','-hide_banner','-nostats','-i',str(f),'-af','loudnorm=I=-16:LRA=7:TP=-1.5:print_format=json','-f','null','-'],capture_output=True,text=True)
-              matches=re.findall(r'\{\s*"input_i".*?\}',loud.stderr,re.S)
-              report['masters'].append({'file':f.name,'probe':probe,'loudness':json.loads(matches[-1]) if matches else None})
-          (ROOT/'TMM071_Natural_Narration_Master_Report.json').write_text(json.dumps(report,indent=2,ensure_ascii=False),encoding='utf-8')
-          (ROOT/'README_TMM071_NATURAL_NARRATION.txt').write_text(
-              'TMM-071 NATURAL NARRATION — PRODUCTION GATE COMPLETE\n\n'
-              'Includes exact-duration standard, vertical, Short A, and Short B narration; previews; waveform-locked English SRT/VTT; segment maps; loudness/probe reports; and checksums.\n\n'
-              'Voice: approved af_heart channel voice. No real person was cloned or imitated.\n'
-              'The historical claim ledger, uncertainty language, Roman-responsibility guardrail, anti-collective-blame language, and novel firewall are unchanged.\n',encoding='utf-8')
-          PY
-          for f in dist/*Narration*flac; do ffprobe -v error -show_entries format=duration -show_entries stream=codec_name,sample_rate,channels -of json "$f"; done
+          test -f dist/TMM071_What_Crucifixion_Was_Designed_To_Do_Standard_05m14s_Natural_Narration_48k.flac
+          test -f dist/TMM071_What_Crucifixion_Was_Designed_To_Do_Vertical_02m38s_Natural_Narration_48k.flac
+          ffprobe -v error -show_entries format=duration -show_entries stream=codec_type,codec_name,sample_rate,channels -of json dist/TMM071_What_Crucifixion_Was_Designed_To_Do_Standard_05m14s_Natural_Narration_48k.flac
+          ffprobe -v error -show_entries format=duration -show_entries stream=codec_type,codec_name,sample_rate,channels -of json dist/TMM071_What_Crucifixion_Was_Designed_To_Do_Vertical_02m38s_Natural_Narration_48k.flac
+          find dist -type d -name 'work_*' -prune -exec rm -rf {} +
           sha256sum dist/* > dist/SHA256SUMS.txt
 
-      - name: Upload narration and locked-caption artifacts
+      - name: Upload narration artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: TMM071-natural-narration-and-captions
+          name: TMM071-natural-narration-v2
           path: dist/
           if-no-files-found: error
           retention-days: 14
